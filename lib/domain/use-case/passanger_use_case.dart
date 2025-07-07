@@ -9,47 +9,61 @@ class PassengerUseCase {
 
   Future<String> _generateBookingCode() async {
     final now = DateTime.now();
-    final random = now.microsecondsSinceEpoch.remainder(1000000).toString().padLeft(6, '0');
+    final random = now.microsecondsSinceEpoch
+        .remainder(1000000)
+        .toString()
+        .padLeft(6, '0');
     return 'BOOK$random';
   }
 
-  Future<void> addPassenger(String rawInput, int travelId) async {
-    final split = rawInput.trim().split(RegExp(r'\\s+'));
-    if (split.length < 3) {
-      throw Exception("Format input harus: NAMA USIA KOTA");
-    }
+  Future<void> addPassenger({
+    required String inputText,
+    required int travelId,
+    required String pickupLocation,
+    required String phoneNumber,
+  }) async {
+    final now = DateTime.now();
+    final parts = inputText.trim().split(RegExp(r'\s+'));
 
-    // Ambil usia dan hapus string tambahan
-    final cleanedAge = split[split.length - 2].replaceAll(RegExp(r'(TAHUN|THN|TH)', caseSensitive: false), '');
-    final usia = int.tryParse(cleanedAge) ?? (throw Exception("Usia tidak valid"));
+    // Validasi jumlah kata minimal 3
+    if (parts.length < 3) throw Exception("Format input tidak sesuai.");
 
-    final currentYear = DateTime.now().year;
-    final tahunLahir = currentYear - usia;
+    // Ambil Usia
+    final usiaIndex = parts.indexWhere(
+      (word) =>
+          RegExp(r'^\d+(TAHUN|THN|TH)?$', caseSensitive: false).hasMatch(word),
+    );
 
-    final kota = split.sublist(split.length - 1).join(' ').toUpperCase();
-    final nama = split.sublist(0, split.length - 2).join(' ').toUpperCase();
+    if (usiaIndex == -1) throw Exception("Tidak ditemukan usia yang valid.");
 
-    final existing = await _passengerRepository.getPassengerByNameAndTravel(nama, travelId);
-    if (existing != null) {
-      throw Exception("Penumpang dengan nama yang sama sudah ada di travel ini.");
-    }
+    // Nama = sebelum usia, Kota = setelah usia
+    final nama = parts.sublist(0, usiaIndex).join(' ').toUpperCase();
+    final kota = parts.sublist(usiaIndex + 1).join(' ').toUpperCase();
 
-    final bookingCode = await _generateBookingCode();
+    final usiaRaw = parts[usiaIndex].replaceAll(
+      RegExp(r'[^\d]'),
+      '',
+    ); // hilangkan "TAHUN", "TH", dsb
+    final usia = int.tryParse(usiaRaw) ?? (throw Exception("Usia tidak valid"));
+
+    final tahunLahir = now.year - usia;
+
+    final kodeBooking = await _generateBookingCode();
 
     final passenger = PassengerEntity(
-      id: null,
       idTravel: travelId,
-      kodeBooking: bookingCode,
+      kodeBooking: kodeBooking,
       nama: nama,
-      jenisKelamin: "", // Default kosong
+      jenisKelamin: "-", // default
       kota: kota,
       usia: usia,
       tahunLahir: tahunLahir,
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
 
     await _passengerRepository.insert(passenger);
   }
+
 
   Future<List<PassengerEntity>> getPassengersByTravel(int travelId) {
     return _passengerRepository.getByTravelId(travelId);
