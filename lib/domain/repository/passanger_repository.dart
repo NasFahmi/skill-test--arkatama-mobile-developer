@@ -11,6 +11,20 @@ class PassengerRepository {
     return await db.insert('penumpang', passenger.toMap());
   }
 
+  Future<PassengerEntity?> getByBookingCode(String kodeBooking) async {
+    final db = await dbHelper.database;
+    final result = await db.query(
+      'penumpang',
+      where: 'kode_booking = ?',
+      whereArgs: [kodeBooking],
+    );
+
+    if (result.isNotEmpty) {
+      return PassengerEntity.fromMap(result.first);
+    }
+    return null;
+  }
+
   Future<List<PassengerEntity>> getAll() async {
     final db = await dbHelper.database;
     final maps = await db.query('penumpang');
@@ -27,7 +41,10 @@ class PassengerRepository {
     return maps.map((map) => PassengerEntity.fromMap(map)).toList();
   }
 
-  Future<PassengerEntity?> getPassengerByNameAndTravel(String nama, int travelId) async {
+  Future<PassengerEntity?> getPassengerByNameAndTravel(
+    String nama,
+    int travelId,
+  ) async {
     final db = await dbHelper.database;
     final result = await db.query(
       'penumpang',
@@ -41,6 +58,8 @@ class PassengerRepository {
       return null;
     }
   }
+
+  
 
   Future<int> delete(int id) async {
     final db = await dbHelper.database;

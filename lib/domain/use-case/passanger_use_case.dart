@@ -7,13 +7,20 @@ class PassengerUseCase {
 
   PassengerUseCase(this._passengerRepository);
 
-  Future<String> _generateBookingCode() async {
+  Future<String> _generateBookingCode(int idTravel) async {
     final now = DateTime.now();
-    final random = now.microsecondsSinceEpoch
-        .remainder(1000000)
-        .toString()
-        .padLeft(6, '0');
-    return 'BOOK$random';
+    final year = now.year.toString().substring(2, 4); // 2 digit
+    final month = now.month.toString().padLeft(2, '0'); // 2 digit
+
+    final travelIdStr = idTravel.toString().padLeft(4, '0');
+
+    // Hitung jumlah penumpang pada travel ini untuk menentukan nomor urut
+    final currentPassengers = await _passengerRepository.getByTravelId(
+      idTravel,
+    );
+    final urut = (currentPassengers.length + 1).toString().padLeft(4, '0');
+
+    return '$year$month$travelIdStr$urut';
   }
 
   Future<void> addPassenger({
@@ -48,7 +55,24 @@ class PassengerUseCase {
 
     final tahunLahir = now.year - usia;
 
-    final kodeBooking = await _generateBookingCode();
+    // Cek apakah penumpang sudah ada di travel yang sama
+    final existingPassenger = await _passengerRepository.getPassengerByNameAndTravel(
+      nama,
+      travelId,
+    );
+    if (existingPassenger != null) {
+      throw Exception(
+        "Penumpang dengan nama yang sama sudah terdaftar di travel ini.",
+      );
+    }
+
+    final kodeBooking = await _generateBookingCode(travelId);
+
+    // Cek apakah kode booking sudah ada
+    final existing = await _passengerRepository.getByBookingCode(kodeBooking);
+    if (existing != null) {
+      throw Exception("Kode booking sudah digunakan. Silakan coba lagi.");
+    }
 
     final passenger = PassengerEntity(
       idTravel: travelId,
@@ -63,7 +87,6 @@ class PassengerUseCase {
 
     await _passengerRepository.insert(passenger);
   }
-
 
   Future<List<PassengerEntity>> getPassengersByTravel(int travelId) {
     return _passengerRepository.getByTravelId(travelId);
